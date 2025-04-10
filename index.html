@@ -56,7 +56,7 @@
     <h2>Admin Dashboard</h2>
     <button id="logoutBtnAdmin">Logout</button>
     <h3>Manage Lines</h3>
-    <!-- Admin creates lines by entering a description and two option texts -->
+    <!-- Admin creates lines by entering a description and two options -->
     <form id="createLineForm">
       <input type="text" id="lineDescription" placeholder="Line Description (e.g., Dylan Points)" required />
       <input type="text" id="option1Text" placeholder="Option 1 (e.g., Over 20 Points)" required />
@@ -109,10 +109,10 @@
       }
 
       // --- INITIALIZE USERS ---
-      // Do not clear USERS_KEY so that accounts persist between sessions.
+      // Do not clear existing user data—this allows persistent login.
       function initUsers() {
         let users = loadData(USERS_KEY);
-        // Ensure the admin account exists.
+        // Ensure the single admin account exists.
         if (!users.find(u => u.username === 'admin')) {
           users.push({ id: 1, username: "admin", password: "admin123", role: "admin" });
         }
@@ -125,19 +125,18 @@
       let users = loadData(USERS_KEY);
       let lines = loadData(LINES_KEY);
       let bets = loadData(BETS_KEY);
-      let currentUser = null; // Holds the currently logged-in user.
+      let currentUser = null; // Will hold the currently logged-in user.
 
       // --- PERSISTENT LOGIN ---
       const storedUser = localStorage.getItem('currentUser');
       if (storedUser) {
         currentUser = JSON.parse(storedUser);
         console.log("Persistent user found:", currentUser);
-        // For members, ensure bonus fields exist.
         if (currentUser.role === 'member') {
           if (currentUser.balance === undefined) currentUser.balance = 0;
           if (currentUser.lastClaimDate === undefined) currentUser.lastClaimDate = "";
         }
-        // Hide login and signup sections.
+        // Hide login & signup sections and show the appropriate dashboard.
         document.getElementById('loginSection').classList.add('hidden');
         document.getElementById('signupSection').classList.add('hidden');
         if (currentUser.role === 'admin') {
@@ -299,9 +298,8 @@
           saveData(LINES_KEY, lines);
           document.getElementById('createLineForm').reset();
           refreshAdminDashboard();
-          // If a member dashboard is active, update it automatically.
-          const memberDashboard = document.getElementById('memberDashboard');
-          if (memberDashboard && !memberDashboard.classList.contains('hidden')) {
+          // Auto-update member dashboard if it's open.
+          if (currentUser && currentUser.role === 'member') {
             refreshMemberDashboard();
           }
         }
@@ -316,8 +314,7 @@
             saveData(LINES_KEY, lines);
             refreshAdminDashboard();
             // Auto-update member dashboard if active.
-            const memberDashboard = document.getElementById('memberDashboard');
-            if (memberDashboard && !memberDashboard.classList.contains('hidden')) {
+            if (currentUser && currentUser.role === 'member') {
               refreshMemberDashboard();
             }
           } else {
@@ -331,8 +328,7 @@
           lines = lines.filter(l => l.id !== lineId);
           saveData(LINES_KEY, lines);
           refreshAdminDashboard();
-          const memberDashboard = document.getElementById('memberDashboard');
-          if (memberDashboard && !memberDashboard.classList.contains('hidden')) {
+          if (currentUser && currentUser.role === 'member') {
             refreshMemberDashboard();
           }
         }
@@ -555,14 +551,14 @@
         refreshMemberDashboard();
       });
 
-      // AUTO UPDATE: Listen for storage events (for changes in other tabs)
+      // AUTO UPDATE: Listen for storage events for changes in LINES_KEY.
       window.addEventListener("storage", function(e) {
         if (e.key === LINES_KEY && currentUser && currentUser.role === 'member') {
           refreshMemberDashboard();
         }
       });
 
-      // Also auto-refresh member dashboard every 5 seconds.
+      // Also auto-refresh the member dashboard every 5 seconds.
       setInterval(function() {
         if (currentUser && currentUser.role === 'member') {
           console.log("Auto-refreshing member dashboard.");
