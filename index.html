@@ -56,7 +56,6 @@
     <h2>Admin Dashboard</h2>
     <button id="logoutBtnAdmin">Logout</button>
     <h3>Manage Lines</h3>
-    <!-- Admin creates lines by entering a description and two options -->
     <form id="createLineForm">
       <input type="text" id="lineDescription" placeholder="Line Description (e.g., Dylan Points)" required />
       <input type="text" id="option1Text" placeholder="Option 1 (e.g., Over 20 Points)" required />
@@ -72,7 +71,6 @@
   <div id="memberDashboard" class="container hidden">
     <h2>Member Dashboard</h2>
     <button id="logoutBtnMember">Logout</button>
-    <!-- Bonus & Balance Section -->
     <div id="bonusSection" style="margin-bottom: 20px;"></div>
     <h3>Place a New Bet</h3>
     <form id="placeBetForm">
@@ -136,7 +134,7 @@
           if (currentUser.balance === undefined) currentUser.balance = 0;
           if (currentUser.lastClaimDate === undefined) currentUser.lastClaimDate = "";
         }
-        // Hide login and signup sections and show the appropriate dashboard.
+        // Hide login & signup sections; show appropriate dashboard.
         document.getElementById('loginSection').classList.add('hidden');
         document.getElementById('signupSection').classList.add('hidden');
         if (currentUser.role === 'admin') {
@@ -254,7 +252,7 @@
 
       // --- ADMIN DASHBOARD FUNCTIONS ---
       function refreshAdminDashboard() {
-        // Update lines from storage before rendering.
+        // Always refresh lines from localStorage.
         lines = loadData(LINES_KEY);
         const linesContainer = document.getElementById('linesContainer');
         if (lines.length === 0) {
@@ -300,7 +298,8 @@
           saveData(LINES_KEY, lines);
           document.getElementById('createLineForm').reset();
           refreshAdminDashboard();
-          // If members are logged in, they will see the new line on next refresh.
+          // Since this code is in the same domain and member dashboard auto-refreshes,
+          // a member logging in later will load the latest lines.
         }
       });
 
@@ -312,7 +311,6 @@
             line.correctOption = parseInt(input.trim());
             saveData(LINES_KEY, lines);
             refreshAdminDashboard();
-            // No need to update member dashboard here; auto-refresh will cover it.
           } else {
             alert("Invalid input. Please enter 1 or 2.");
           }
@@ -363,9 +361,10 @@
 
       // --- MEMBER DASHBOARD FUNCTIONS ---
       function refreshMemberDashboard() {
-        // Always re-read data from storage.
+        // Always re-read lines and bets from storage.
         lines = loadData(LINES_KEY);
         bets = loadData(BETS_KEY);
+
         // Bonus & Balance Section
         const bonusSection = document.getElementById('bonusSection');
         const today = getTodayDate();
@@ -379,13 +378,13 @@
           claimBtn.addEventListener('click', claimBonus);
         }
 
-        // Available Lines for Betting
+        // Available Lines
         const availableDiv = document.getElementById('availableLines');
         if (lines.length === 0) {
           availableDiv.innerHTML = '<p>No available lines to bet on.</p>';
         } else {
           let html = '';
-          // Only show lines that are still open (without a set outcome)
+          // Show only lines that have not been resolved (i.e. are still open)
           const openLines = lines.filter(line => line.correctOption === null);
           if (openLines.length === 0) {
             availableDiv.innerHTML = '<p>No available lines to bet on.</p>';
@@ -552,14 +551,14 @@
         refreshMemberDashboard();
       });
 
-      // AUTO UPDATE: Listen for storage events for changes in LINES_KEY.
+      // AUTO UPDATE: Listen for storage events (for changes in LINES_KEY)
       window.addEventListener("storage", function(e) {
         if (e.key === LINES_KEY && currentUser && currentUser.role === 'member') {
           refreshMemberDashboard();
         }
       });
 
-      // Auto-refresh the member dashboard every 5 seconds.
+      // Auto-refresh member dashboard every 5 seconds.
       setInterval(function() {
         if (currentUser && currentUser.role === 'member') {
           console.log("Auto-refreshing member dashboard.");
