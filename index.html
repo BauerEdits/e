@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fake Sportsbook with Login</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    .bet-line { margin-bottom: 20px; border: 1px solid #ccc; padding: 10px; }
+    .bet-line h3 { margin: 0 0 10px 0; }
+    .parlay, .history, .login { background: #f0f8ff; padding: 10px; margin-top: 20px; border: 1px solid #aaa; }
+    button { margin: 3px; }
+    #payoutPreview { font-weight: bold; margin-top: 10px; }
+    .checkmark { color: green; font-size: 20px; }
+    .xmark { color: red; font-size: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Fake Sportsbook (Multi-user Parlay Edition)</h1>
+
+  <!-- Login Options -->
+  <div class="login">
+    <button onclick="showLoginForm('member')">Member Login</button>
+    <button onclick="showLoginForm('admin')">Admin Login</button>
+  </div>
+
+  <!-- Member Login Form -->
+  <div id="memberLogin" style="display:none">
+    <input type="text" id="usernameInput" placeholder="Enter your username">
+    <button onclick="loginUser('member')">Log In</button>
+  </div>
+
+  <!-- Admin Login Form -->
+  <div id="adminLogin" style="display:none">
+    <input type="text" id="adminUsernameInput" placeholder="Enter admin username">
+    <input type="password" id="adminPasswordInput" placeholder="Enter admin password">
+    <button onclick="loginUser('admin')">Log In</button>
+  </div>
+
+  <div id="app" style="display:none">
+    <p><strong>Balance:</strong> $<span id="balanceDisplay">0</span></p>
+
+    <h2>Create New Bet (Admin Only)</h2>
+    <input type="text" id="lineName" placeholder="e.g. Dylan over 20.5 points">
+    <input type="text" id="optionA" placeholder="Option A">
+    <input type="text" id="optionB" placeholder="Option B">
+    <button onclick="createBetLine()">Create Bet</button>
+
+    <h2>Active Betting Lines</h2>
+    <div id="lines"></div>
+
+    <div class="parlay">
+      <h3>Parlay Cart</h3>
+      <ul id="parlayList"></ul>
+      <p id="payoutPreview">Potential Payout: N/A</p>
+      <button onclick="placeParlay()">Place Parlay Bet</button>
+    </div>
+
+    <div class="history">
+      <h3>Your Parlay History</h3>
+      <div id="parlayHistoryList"></div>
+    </div>
+
+    <div class="history">
+      <h3>Past Parlays</h3>
+      <div id="pastParlayHistoryList"></div>
+    </div>
+  </div>
+
+  <!-- Display Current User -->
+  <div id="currentUserDisplay" style="margin-top: 20px;"></div>
+
+  <script>
+    let users = JSON.parse(localStorage.getItem("users")) || {};
+    let currentUser = null;
+    let isAdmin = false;
+
+    let lines = JSON.parse(localStorage.getItem("lines")) || [];
+    let parlayCart = [];
+
+    window.onload = function() {
+      const savedUser = localStorage.getItem("currentUser");
+      if (savedUser && users[savedUser]) {
+        currentUser = savedUser;
+        isAdmin = false;
+        document.getElementById("currentUserDisplay").innerText = `Logged in as: ${savedUser}`;
+        document.getElementById("app").style.display = 'block';
+        renderLines();
+        updateBalanceDisplay();
+        renderParlayHistory();
+        parlayCart = [];
+        renderParlay();
+      }
+
+      window.addEventListener('storage', function(event) {
+        if (event.key === 'lines') {
+          lines = JSON.parse(localStorage.getItem("lines")) || [];
+          renderLines();
+        } else if (event.key === 'users') {
+          users = JSON.parse(localStorage.getItem("users")) || {};
+          updateBalanceDisplay();
+          renderParlayHistory();
+        }
+      });
+    };
+
+    function showLoginForm(type) {
+      document.getElementById("memberLogin").style.display = type === 'member' ? 'block' : 'none';
+      document.getElementById("adminLogin").style.display = type === 'admin' ? 'block' : 'none';
+    }
+
+    function loginUser(type) {
+      if (type === 'member') {
+        const username = document.getElementById("usernameInput").value.trim();
+        if (!username) return alert("Please enter a username");
+        if (!users[username]) users[username] = { balance: 1000, parlays: [] };
+        currentUser = username;
+        isAdmin = false;
+        localStorage.setItem("currentUser", username);
+        localStorage.setItem("users", JSON.stringify(users));
+        document.getElementById("currentUserDisplay").innerText = `Logged in as: ${username}`;
+        document.getElementById("app").style.display = 'block';
+        renderLines();
+        updateBalanceDisplay();
+        renderParlayHistory();
+        parlayCart = [];
+        renderParlay();
+      } else {
+        const user = document.getElementById("adminUsernameInput").value;
+        const pass = document.getElementById("adminPasswordInput").value;
+        if (user === "admin" && pass === "admin123") {
+          isAdmin = true;
+          document.getElementById("currentUserDisplay").innerText = `Logged in as Admin`;
+          document.getElementById("app").style.display = 'block';
+          renderLines();
+        } else {
+          alert("Invalid admin credentials");
+        }
+      }
+    }
+
+    function updateBalanceDisplay() {
+      if (currentUser && users[currentUser]) {
+        document.getElementById("balanceDisplay").innerText = users[currentUser].balance;
+      }
+    }
+
+    function getParlayMultiplier(len) {
+      return len === 2 ? 3 : len === 3 ? 6 : len === 4 ? 10 : len === 5 ? 15 : len >= 6 ? 25 : 2;
+    }
+
+    function createBetLine() {
+      if (!isAdmin) return alert("Only admins can create bets");
+      const name = document.getElementById("lineName").value;
+      const A = document.getElementById("optionA").value;
+      const B = document.getElementById("optionB").value;
+      if (!name || !A || !B) return alert("Fill all fields");
+      lines.push({ id: Date.now(), name, optionA: A, optionB: B, result: null });
+      localStorage.setItem("lines", JSON.stringify(lines));
+      renderLines();
+    }
+
+    function addToParlay(id, side) {
+      if (parlayCart.find(p => p.lineId === id)) return alert("Already added");
+      const line = lines.find(l => l.id === id);
+      parlayCart.push({ lineId: id, side, line });
+      renderParlay();
+    }
+
+    function removeFromParlay(index) {
+      parlayCart.splice(index, 1);
+      renderParlay();
+    }
+
+    function renderParlay() {
+      const list = document.getElementById("parlayList");
+      list.innerHTML = "";
+      parlayCart.forEach((p, i) => {
+        const li = document.createElement("li");
+        li.innerHTML = `${p.line.name}: ${p.side === 'A' ? p.line.optionA : p.line.optionB} <button onclick="removeFromParlay(${i})">X</button>`;
+        list.appendChild(li);
+      });
+      document.getElementById("payoutPreview").innerText = `Potential Payout: ${parlayCart.length >= 2 ? getParlayMultiplier(parlayCart.length) + 'x' : 'N/A'}`;
+    }
+
+    function placeParlay() {
+      if (parlayCart.length < 2) return alert("Need 2+ picks");
+      const amt = parseInt(prompt("Bet amount?"));
+      if (isNaN(amt) || amt <= 0) return;
+      if (amt > users[currentUser].balance) return alert("Insufficient balance");
+      users[currentUser].balance -= amt;
+      users[currentUser].parlays.push({ picks: JSON.parse(JSON.stringify(parlayCart)), amount: amt, resolved: false, result: "Pending" });
+      localStorage.setItem("users", JSON.stringify(users));
+      parlayCart = [];
+      renderParlay();
+      updateBalanceDisplay();
+      renderParlayHistory();
+    }
+
+    function declareWinner(id, winner) {
+      if (!isAdmin) return;
+      const line = lines.find(l => l.id === id);
+      if (!line || line.result) return alert("Already resolved");
+      line.result = winner;
+
+      for (const user in users) {
+        users[user].parlays.forEach(parlay => {
+          parlay.picks.forEach(pick => {
+            if (pick.lineId === id) {
+              pick.result = pick.side === winner ? '✅' : '❌';
+            }
+          });
+          const all = parlay.picks.every(p => p.result === '✅');
+          if (all && !parlay.resolved) {
+            const mult = getParlayMultiplier(parlay.picks.length);
+            const payout = parlay.amount * mult;
+            users[user].balance += payout;
+            parlay.result = `Paid Out: $${payout}`;
+            parlay.resolved = true;
+          }
+        });
+      }
+
+      localStorage.setItem("users", JSON.stringify(users));
+      localStorage.setItem("lines", JSON.stringify(lines));
+      renderLines();
+      renderParlayHistory();
+    }
+
+    function renderLines() {
+      const c = document.getElementById("lines");
+      c.innerHTML = "";
+      lines.forEach(line => {
+        const d = document.createElement("div");
+        d.className = "bet-line";
+        d.innerHTML = `<h3>${line.name}</h3>
+          <button onclick="addToParlay(${line.id}, 'A')">${line.optionA}</button>
+          <button onclick="addToParlay(${line.id}, 'B')">${line.optionB}</button>
+          ${isAdmin ? `<button onclick="declareWinner(${line.id}, 'A')">Set A Winner</button>
+          <button onclick="declareWinner(${line.id}, 'B')">Set B Winner</button>` : ''}`;
+        c.appendChild(d);
+      });
+    }
+
+    function renderParlayHistory() {
+      const container = document.getElementById("parlayHistoryList");
+      container.innerHTML = "";
+      const list = users[currentUser]?.parlays || [];
+      list.forEach(parlay => {
+        const div = document.createElement("div");
+        div.innerHTML = `<strong>Parlay (${parlay.picks.length} picks) - Bet: $${parlay.amount}</strong><br>
+          <ul>${parlay.picks.map(p => `<li>${p.line.name}: ${p.side === 'A' ? p.line.optionA : p.line.optionB} ${p.result || ''}</li>`).join('')}</ul>
+          <p><strong>Result:</strong> ${parlay.result || "Pending"}</p>`;
+        container.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>
