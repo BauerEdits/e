@@ -80,7 +80,6 @@
       <input type="number" step="0.01" id="betAmount" required /><br />
       <p>Select between 2 and 6 Lines by choosing one option per line:</p>
       <div id="availableLines"></div>
-      <!-- Potential payout display -->
       <p id="potentialPayoutDisplay">Potential Payout: N/A</p>
       <button type="submit">Place Bet</button>
     </form>
@@ -110,10 +109,10 @@
       }
 
       // --- INITIALIZE USERS ---
-      // Note: Do not clear existing data—this ensures persistent login.
+      // Do not clear USERS_KEY so that accounts persist between sessions.
       function initUsers() {
         let users = loadData(USERS_KEY);
-        // Ensure the single admin account exists.
+        // Ensure the admin account exists.
         if (!users.find(u => u.username === 'admin')) {
           users.push({ id: 1, username: "admin", password: "admin123", role: "admin" });
         }
@@ -133,10 +132,14 @@
       if (storedUser) {
         currentUser = JSON.parse(storedUser);
         console.log("Persistent user found:", currentUser);
+        // For members, ensure bonus fields exist.
         if (currentUser.role === 'member') {
           if (currentUser.balance === undefined) currentUser.balance = 0;
           if (currentUser.lastClaimDate === undefined) currentUser.lastClaimDate = "";
         }
+        // Hide login and signup sections.
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('signupSection').classList.add('hidden');
         if (currentUser.role === 'admin') {
           document.getElementById('adminDashboard').classList.remove('hidden');
           refreshAdminDashboard();
@@ -296,8 +299,9 @@
           saveData(LINES_KEY, lines);
           document.getElementById('createLineForm').reset();
           refreshAdminDashboard();
-          // Optional: If a member dashboard is open, refresh it automatically.
-          if (currentUser && currentUser.role === 'member') {
+          // If a member dashboard is active, update it automatically.
+          const memberDashboard = document.getElementById('memberDashboard');
+          if (memberDashboard && !memberDashboard.classList.contains('hidden')) {
             refreshMemberDashboard();
           }
         }
@@ -311,8 +315,9 @@
             line.correctOption = parseInt(input.trim());
             saveData(LINES_KEY, lines);
             refreshAdminDashboard();
-            // When admin updates an outcome, update member dashboard immediately.
-            if (currentUser && currentUser.role === 'member') {
+            // Auto-update member dashboard if active.
+            const memberDashboard = document.getElementById('memberDashboard');
+            if (memberDashboard && !memberDashboard.classList.contains('hidden')) {
               refreshMemberDashboard();
             }
           } else {
@@ -326,7 +331,8 @@
           lines = lines.filter(l => l.id !== lineId);
           saveData(LINES_KEY, lines);
           refreshAdminDashboard();
-          if (currentUser && currentUser.role === 'member') {
+          const memberDashboard = document.getElementById('memberDashboard');
+          if (memberDashboard && !memberDashboard.classList.contains('hidden')) {
             refreshMemberDashboard();
           }
         }
@@ -368,6 +374,7 @@
 
       // --- MEMBER DASHBOARD FUNCTIONS ---
       function refreshMemberDashboard() {
+        // Bonus & Balance Section
         const bonusSection = document.getElementById('bonusSection');
         const today = getTodayDate();
         if (!currentUser.lastClaimDate || currentUser.lastClaimDate !== today) {
@@ -380,6 +387,7 @@
           claimBtn.addEventListener('click', claimBonus);
         }
 
+        // Available Lines
         const availableDiv = document.getElementById('availableLines');
         const availableLines = lines.filter(line => line.correctOption === null);
         if (availableLines.length === 0) {
@@ -411,6 +419,7 @@
         document.getElementById('availableLines').addEventListener('change', updatePotentialPayout);
         updatePotentialPayout();
 
+        // Live Bets
         const liveBetsContainer = document.getElementById('liveBetsContainer');
         const liveBets = bets.filter(bet => bet.user === currentUser.username && !bet.isSettled);
         if (liveBets.length === 0) {
@@ -435,6 +444,7 @@
           liveBetsContainer.innerHTML = html;
         }
 
+        // Past Bets
         const pastBetsContainer = document.getElementById('pastBetsContainer');
         const pastBets = bets.filter(bet => bet.user === currentUser.username && bet.isSettled);
         if (pastBets.length === 0) {
@@ -545,14 +555,14 @@
         refreshMemberDashboard();
       });
 
-      // AUTO UPDATE AVAILABLE LINES FROM STORAGE (for changes in other tabs)
+      // AUTO UPDATE: Listen for storage events (for changes in other tabs)
       window.addEventListener("storage", function(e) {
         if (e.key === LINES_KEY && currentUser && currentUser.role === 'member') {
           refreshMemberDashboard();
         }
       });
 
-      // OPTIONAL: Auto-refresh member dashboard every 5 seconds to show admin updates.
+      // Also auto-refresh member dashboard every 5 seconds.
       setInterval(function() {
         if (currentUser && currentUser.role === 'member') {
           console.log("Auto-refreshing member dashboard.");
