@@ -109,10 +109,10 @@
       }
 
       // --- INITIALIZE USERS ---
-      // Do not clear existing user data—this allows persistent login.
+      // Do not clear existing user data so that accounts persist.
       function initUsers() {
         let users = loadData(USERS_KEY);
-        // Ensure the single admin account exists.
+        // Ensure the admin account exists.
         if (!users.find(u => u.username === 'admin')) {
           users.push({ id: 1, username: "admin", password: "admin123", role: "admin" });
         }
@@ -121,11 +121,11 @@
       }
       initUsers();
 
-      // --- LOAD INITIAL DATA ARRAYS ---
+      // --- LOAD DATA ARRAYS ---
       let users = loadData(USERS_KEY);
       let lines = loadData(LINES_KEY);
       let bets = loadData(BETS_KEY);
-      let currentUser = null; // Will hold the currently logged-in user.
+      let currentUser = null; // Holds the currently logged-in user.
 
       // --- PERSISTENT LOGIN ---
       const storedUser = localStorage.getItem('currentUser');
@@ -136,7 +136,7 @@
           if (currentUser.balance === undefined) currentUser.balance = 0;
           if (currentUser.lastClaimDate === undefined) currentUser.lastClaimDate = "";
         }
-        // Hide login & signup sections and show the appropriate dashboard.
+        // Hide login and signup sections and show the appropriate dashboard.
         document.getElementById('loginSection').classList.add('hidden');
         document.getElementById('signupSection').classList.add('hidden');
         if (currentUser.role === 'admin') {
@@ -254,6 +254,8 @@
 
       // --- ADMIN DASHBOARD FUNCTIONS ---
       function refreshAdminDashboard() {
+        // Update lines from storage before rendering.
+        lines = loadData(LINES_KEY);
         const linesContainer = document.getElementById('linesContainer');
         if (lines.length === 0) {
           linesContainer.innerHTML = '<p>No lines available.</p>';
@@ -298,10 +300,7 @@
           saveData(LINES_KEY, lines);
           document.getElementById('createLineForm').reset();
           refreshAdminDashboard();
-          // Auto-update member dashboard if it's open.
-          if (currentUser && currentUser.role === 'member') {
-            refreshMemberDashboard();
-          }
+          // If members are logged in, they will see the new line on next refresh.
         }
       });
 
@@ -313,10 +312,7 @@
             line.correctOption = parseInt(input.trim());
             saveData(LINES_KEY, lines);
             refreshAdminDashboard();
-            // Auto-update member dashboard if active.
-            if (currentUser && currentUser.role === 'member') {
-              refreshMemberDashboard();
-            }
+            // No need to update member dashboard here; auto-refresh will cover it.
           } else {
             alert("Invalid input. Please enter 1 or 2.");
           }
@@ -328,9 +324,6 @@
           lines = lines.filter(l => l.id !== lineId);
           saveData(LINES_KEY, lines);
           refreshAdminDashboard();
-          if (currentUser && currentUser.role === 'member') {
-            refreshMemberDashboard();
-          }
         }
       };
 
@@ -370,6 +363,9 @@
 
       // --- MEMBER DASHBOARD FUNCTIONS ---
       function refreshMemberDashboard() {
+        // Always re-read data from storage.
+        lines = loadData(LINES_KEY);
+        bets = loadData(BETS_KEY);
         // Bonus & Balance Section
         const bonusSection = document.getElementById('bonusSection');
         const today = getTodayDate();
@@ -383,25 +379,30 @@
           claimBtn.addEventListener('click', claimBonus);
         }
 
-        // Available Lines
+        // Available Lines for Betting
         const availableDiv = document.getElementById('availableLines');
-        const availableLines = lines.filter(line => line.correctOption === null);
-        if (availableLines.length === 0) {
+        if (lines.length === 0) {
           availableDiv.innerHTML = '<p>No available lines to bet on.</p>';
         } else {
           let html = '';
-          availableLines.forEach(line => {
-            html += `<div class="line-block">
-                      <strong>${line.description}</strong><br/>
-                      <label>
-                        <input type="radio" name="line_choice_${line.id}" value="1"> ${line.option1}
-                      </label>
-                      <label>
-                        <input type="radio" name="line_choice_${line.id}" value="2"> ${line.option2}
-                      </label>
-                    </div>`;
-          });
-          availableDiv.innerHTML = html;
+          // Only show lines that are still open (without a set outcome)
+          const openLines = lines.filter(line => line.correctOption === null);
+          if (openLines.length === 0) {
+            availableDiv.innerHTML = '<p>No available lines to bet on.</p>';
+          } else {
+            openLines.forEach(line => {
+              html += `<div class="line-block">
+                        <strong>${line.description}</strong><br/>
+                        <label>
+                          <input type="radio" name="line_choice_${line.id}" value="1"> ${line.option1}
+                        </label>
+                        <label>
+                          <input type="radio" name="line_choice_${line.id}" value="2"> ${line.option2}
+                        </label>
+                      </div>`;
+            });
+            availableDiv.innerHTML = html;
+          }
         }
         
         // Potential Payout Display
@@ -558,7 +559,7 @@
         }
       });
 
-      // Also auto-refresh the member dashboard every 5 seconds.
+      // Auto-refresh the member dashboard every 5 seconds.
       setInterval(function() {
         if (currentUser && currentUser.role === 'member') {
           console.log("Auto-refreshing member dashboard.");
