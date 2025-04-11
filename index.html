@@ -90,13 +90,13 @@
       <div id="pastBetsContainer"></div>
     </div>
 
-    <!-- Firebase Initialization and Application Code -->
+    <!-- Firebase and Application Code -->
     <script>
       document.addEventListener("DOMContentLoaded", function() {
         console.log("DOM fully loaded and parsed.");
 
         // =====================================================
-        // Step 2: Initialize Firebase with Your Config
+        // Step 2: Initialize Firebase
         // =====================================================
         const firebaseConfig = {
           apiKey: "AIzaSyBfS12-iZ4ANoBuXPJWoMNvs8F94BARU54",
@@ -113,7 +113,7 @@
         console.log("Firebase initialized.");
 
         // =====================================================
-        // Step 3: Set Up Local User Storage (for persistent login)
+        // Step 3: Local User Storage (for persistent login)
         // =====================================================
         const USERS_KEY = "betting_users";
         function loadUsers() {
@@ -135,6 +135,7 @@
         let currentUser = null;
         if (localStorage.getItem("currentUser")) {
           currentUser = JSON.parse(localStorage.getItem("currentUser"));
+          console.log("Persistent user found:", currentUser);
         }
         function saveCurrentUser() {
           localStorage.setItem("currentUser", JSON.stringify(currentUser));
@@ -151,7 +152,7 @@
         }
 
         // =====================================================
-        // UI: Switch between login and signup forms
+        // UI: Switch between Login and Signup Forms
         // =====================================================
         document.getElementById("showSignup").addEventListener("click", function () {
           document.getElementById("loginSection").classList.add("hidden");
@@ -163,7 +164,7 @@
         });
 
         // =====================================================
-        // User Login and Signup (localStorage-based)
+        // User Login and Signup (localStorage)
         // =====================================================
         document.getElementById("loginForm").addEventListener("submit", function(e) {
           e.preventDefault();
@@ -172,6 +173,11 @@
           usersLocal = loadUsers();
           const user = usersLocal.find(u => u.username === username && u.password === password);
           if (user) {
+            console.log("Login successful:", user);
+            if (user.role === "member") {
+              if (user.balance === undefined) user.balance = 0;
+              if (user.lastClaimDate === undefined) user.lastClaimDate = "";
+            }
             currentUser = user;
             saveCurrentUser();
             document.getElementById("loginSection").classList.add("hidden");
@@ -204,14 +210,7 @@
             document.getElementById("signupMessage").textContent = "Username already exists.";
             return;
           }
-          const newUser = {
-            id: generateLocalId(usersLocal),
-            username,
-            password,
-            role,
-            balance: 0,
-            lastClaimDate: ""
-          };
+          const newUser = { id: generateLocalId(usersLocal), username, password, role, balance: 0, lastClaimDate: "" };
           usersLocal.push(newUser);
           saveUsers(usersLocal);
           currentUser = newUser;
@@ -220,6 +219,7 @@
           document.getElementById("memberDashboard").classList.remove("hidden");
         });
         function logout() {
+          console.log("Logging out:", currentUser);
           currentUser = null;
           removeCurrentUser();
           document.getElementById("loginSection").classList.remove("hidden");
@@ -232,7 +232,7 @@
         document.getElementById("logoutBtnMember").addEventListener("click", logout);
 
         // =====================================================
-        // Firebase Functions for Shared Data (lines and bets)
+        // Firebase Functions for Shared Data (Lines and Bets)
         // =====================================================
         async function addLine(newLine) {
           try {
@@ -252,7 +252,7 @@
             console.error("Error adding bet:", error);
           }
         }
-        // Real-time listeners:
+        // Set up real-time listeners for lines and bets:
         db.ref("lines").on("value", (snapshot) => {
           const data = snapshot.val() || {};
           lines = [];
@@ -272,11 +272,13 @@
             bets.push({ id: key, ...data[key] });
           }
           console.log("Bets updated from Firebase:", bets);
-          if (currentUser && currentUser.role === "member") refreshMemberDashboardUI();
+          if (currentUser && currentUser.role === "member") {
+            refreshMemberDashboardUI();
+          }
         });
 
         // =====================================================
-        // Admin Dashboard UI Functions (using Firebase data)
+        // Admin Dashboard UI Functions (using Firebase Data)
         // =====================================================
         function refreshAdminDashboardUI() {
           const linesContainer = document.getElementById("linesContainer");
@@ -306,7 +308,6 @@
             linesContainer.innerHTML = html;
           }
         }
-
         async function updateLineOutcome(lineId) {
           const lineRef = db.ref("lines/" + lineId);
           const snapshot = await lineRef.once("value");
@@ -329,16 +330,13 @@
             }
           }
         }
-
         async function deleteLine(lineId) {
           if (confirm("Are you sure you want to delete line " + lineId + "?")) {
             await db.ref("lines/" + lineId).remove();
             console.log("Line deleted.");
           }
         }
-
         document.getElementById("resolveBetsBtn").addEventListener("click", async function () {
-          // For each bet in Firebase where isSettled is false, check the selections.
           const betsSnapshot = await db.ref("bets").once("value");
           const betsData = betsSnapshot.val() || {};
           for (let betKey in betsData) {
@@ -346,7 +344,6 @@
             if (!bet.isSettled) {
               let canResolve = true;
               let allCorrect = true;
-              // For each selection in the bet, fetch the corresponding line
               for (const sel of bet.selections) {
                 const lineSnapshot = await db.ref("lines/" + sel.lineId).once("value");
                 const line = lineSnapshot.val();
@@ -367,8 +364,7 @@
                   isSettled: true,
                   resolvedAt: new Date().toLocaleString()
                 });
-                // For simplicity, we're not updating the user's balance in Firebase.
-                // You could have a separate "users" collection for that.
+                console.log("Bet resolved for key:", betKey);
               }
             }
           }
@@ -376,10 +372,9 @@
         });
 
         // =====================================================
-        // Member Dashboard UI Functions (using Firebase data)
+        // Member Dashboard UI Functions (using Firebase Data)
         // =====================================================
         function refreshMemberDashboardUI() {
-          // Bonus & Balance Section: uses currentUser stored in localStorage
           const bonusSection = document.getElementById("bonusSection");
           const today = getTodayDate();
           if (!currentUser.lastClaimDate || currentUser.lastClaimDate !== today) {
@@ -392,7 +387,6 @@
             claimBtn.addEventListener("click", claimBonus);
           }
 
-          // Available Lines: Only show lines with correctOption === null.
           const availableDiv = document.getElementById("availableLines");
           let openLines = lines.filter(line => line.correctOption === null);
           if (openLines.length === 0) {
@@ -413,18 +407,19 @@
             availableDiv.innerHTML = html;
           }
           
-          // Potential Payout Display
           if (!document.getElementById("potentialPayoutDisplay")) {
             const potPayout = document.createElement("p");
             potPayout.id = "potentialPayoutDisplay";
             potPayout.innerText = "Potential Payout: N/A";
-            availableDiv.parentNode.insertBefore(potPayout, document.getElementById("placeBetForm").querySelector('button[type="submit"]'));
+            availableDiv.parentNode.insertBefore(
+              potPayout,
+              document.getElementById("placeBetForm").querySelector('button[type="submit"]')
+            );
           }
           document.getElementById("betAmount").addEventListener("input", updatePotentialPayout);
           document.getElementById("availableLines").addEventListener("change", updatePotentialPayout);
           updatePotentialPayout();
 
-          // Live Bets: Render bets where isSettled is false and belong to currentUser.
           const liveBetsContainer = document.getElementById("liveBetsContainer");
           let liveBets = bets.filter(bet => bet.user === currentUser.username && !bet.isSettled);
           if (liveBets.length === 0) {
@@ -432,12 +427,14 @@
           } else {
             let html = '<table><tr><th>ID</th><th>Amount</th><th>Selections</th><th>Placed On</th></tr>';
             liveBets.forEach(bet => {
-              let selectionsStr = bet.selections.map(sel => {
-                const line = lines.find(l => l.id === sel.lineId);
-                if (!line) return "";
-                const optionText = sel.choice === 1 ? line.option1 : line.option2;
-                return line.description + " (" + optionText + ")";
-              }).join(" | ");
+              let selectionsStr = bet.selections
+                .map(sel => {
+                  const line = lines.find(l => l.id === sel.lineId);
+                  if (!line) return "";
+                  const optionText = sel.choice === 1 ? line.option1 : line.option2;
+                  return line.description + " (" + optionText + ")";
+                })
+                .join(" | ");
               html += `<tr>
                         <td>${bet.id}</td>
                         <td>${bet.betAmount}</td>
@@ -449,7 +446,6 @@
             liveBetsContainer.innerHTML = html;
           }
 
-          // Past Bets: Render bets where isSettled is true.
           const pastBetsContainer = document.getElementById("pastBetsContainer");
           let pastBets = bets.filter(bet => bet.user === currentUser.username && bet.isSettled);
           if (pastBets.length === 0) {
@@ -457,12 +453,14 @@
           } else {
             let html = '<table><tr><th>ID</th><th>Amount</th><th>Selections</th><th>Status</th><th>Payout</th><th>Resolved On</th></tr>';
             pastBets.forEach(bet => {
-              let selectionsStr = bet.selections.map(sel => {
-                const line = lines.find(l => l.id === sel.lineId);
-                if (!line) return "";
-                const optionText = sel.choice === 1 ? line.option1 : line.option2;
-                return line.description + " (" + optionText + ")";
-              }).join(" | ");
+              let selectionsStr = bet.selections
+                .map(sel => {
+                  const line = lines.find(l => l.id === sel.lineId);
+                  if (!line) return "";
+                  const optionText = sel.choice === 1 ? line.option1 : line.option2;
+                  return line.description + " (" + optionText + ")";
+                })
+                .join(" | ");
               html += `<tr>
                         <td>${bet.id}</td>
                         <td>${bet.betAmount}</td>
@@ -510,7 +508,6 @@
           refreshMemberDashboardUI();
         }
 
-        // Place bet form: Uses Firebase to add a bet.
         document.getElementById("placeBetForm").addEventListener("submit", async function (e) {
           e.preventDefault();
           const betAmount = parseFloat(document.getElementById("betAmount").value);
@@ -519,7 +516,6 @@
             return;
           }
           let selections = [];
-          // Use only open lines from Firebase.
           const openLines = lines.filter(line => line.correctOption === null);
           openLines.forEach(line => {
             const radios = document.getElementsByName("line_choice_" + line.id);
@@ -559,7 +555,6 @@
           document.getElementById("placeBetForm").reset();
         });
 
-        // Auto-refresh member dashboard every 5 seconds
         setInterval(function () {
           if (currentUser && currentUser.role === "member") {
             console.log("Auto-refreshing member dashboard.");
