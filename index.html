@@ -12,22 +12,17 @@
       .hidden {
         display: none;
       }
-      h2,
-      h3 {
+      h2, h3 {
         color: #333;
       }
-      input,
-      button,
-      select {
+      input, button, select {
         margin: 5px;
         padding: 5px;
       }
       .container {
         margin-bottom: 20px;
       }
-      table,
-      th,
-      td {
+      table, th, td {
         border: 1px solid #ccc;
         border-collapse: collapse;
         padding: 5px;
@@ -43,7 +38,7 @@
         border: 1px solid #ddd;
       }
     </style>
-    <!-- Firebase SDKs (using compat libraries for simplicity) -->
+    <!-- Load Firebase SDKs from the CDN (compatibility mode) -->
     <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-database-compat.js"></script>
   </head>
@@ -120,474 +115,486 @@
     </div>
 
     <!-- Firebase Initialization and Application Code -->
-    <script>
-      document.addEventListener("DOMContentLoaded", function() {
-        console.log("DOM fully loaded and parsed.");
+    <script type="module">
+      // Import Firebase functions using the modular SDK via CDN
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+      import { getDatabase, ref, push, set, onValue, update } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
 
-        // =====================================================
-        // Step 2: Initialize Firebase with your configuration
-        // =====================================================
-        const firebaseConfig = {
-          apiKey: "AIzaSyBfS12-iZ4ANoBuXPJWoMNvs8F94BARU54",
-          authDomain: "gambling-1e67c.firebaseapp.com",
-          databaseURL: "https://gambling-1e67c-default-rtdb.firebaseio.com",
-          projectId: "gambling-1e67c",
-          storageBucket: "gambling-1e67c.firebasestorage.app",
-          messagingSenderId: "233258255069",
-          appId: "1:233258255069:web:7f844c31c3664408dd5134",
-          measurementId: "G-9HFLW7KVYW"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        console.log("Firebase initialized.");
+      // =====================================================
+      // Initialize Firebase with your configuration (replace values if needed)
+      // =====================================================
+      const firebaseConfig = {
+        apiKey: "AIzaSyBfS12-iZ4ANoBuXPJWoMNvs8F94BARU54",
+        authDomain: "gambling-1e67c.firebaseapp.com",
+        databaseURL: "https://gambling-1e67c-default-rtdb.firebaseio.com",
+        projectId: "gambling-1e67c",
+        storageBucket: "gambling-1e67c.firebasestorage.app",
+        messagingSenderId: "233258255069",
+        appId: "1:233258255069:web:7f844c31c3664408dd5134",
+        measurementId: "G-9HFLW7KVYW"
+      };
 
-        // =====================================================
-        // Step 3: Set Up Local User Storage (for login)
-        // =====================================================
-        const USERS_KEY = "betting_users";
-        function loadUsers() {
-          return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
-        }
-        function saveUsers(users) {
-          localStorage.setItem(USERS_KEY, JSON.stringify(users));
-        }
-        function initUsers() {
-          let users = loadUsers();
-          if (!users.find(u => u.username === "admin")) {
-            users.push({ id: 1, username: "admin", password: "admin123", role: "admin" });
-          }
-          saveUsers(users);
-          console.log("Users initialized:", users);
-        }
-        initUsers();
-        let usersLocal = loadUsers();
-        let currentUser = null;
-        if (localStorage.getItem("currentUser")) {
-          currentUser = JSON.parse(localStorage.getItem("currentUser"));
-          console.log("Persistent user found:", currentUser);
-        }
-        function saveCurrentUser() {
-          localStorage.setItem("currentUser", JSON.stringify(currentUser));
-        }
-        function removeCurrentUser() {
-          localStorage.removeItem("currentUser");
-        }
-        function generateLocalId(arr) {
-          if (arr.length === 0) return 1;
-          return Math.max(...arr.map(x => x.id)) + 1;
-        }
-        function getTodayDate() {
-          return new Date().toISOString().split("T")[0];
-        }
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app); // Optional
+      const db = getDatabase(app);
+      console.log("Firebase initialized.");
 
-        // =====================================================
-        // UI: Switch between Login and Signup Forms
-        // =====================================================
-        document.getElementById("showSignup").addEventListener("click", function () {
-          document.getElementById("loginSection").classList.add("hidden");
-          document.getElementById("signupSection").classList.remove("hidden");
-        });
-        document.getElementById("showLogin").addEventListener("click", function () {
-          document.getElementById("signupSection").classList.add("hidden");
-          document.getElementById("loginSection").classList.remove("hidden");
-        });
+      // =====================================================
+      // Local User Storage for persistent login (device-specific)
+      // =====================================================
+      const USERS_KEY = "betting_users";
+      function loadUsers() {
+        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+      }
+      function saveUsers(users) {
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      }
+      function initUsers() {
+        let users = loadUsers();
+        // Ensure the admin account exists.
+        if (!users.find(u => u.username === "admin")) {
+          users.push({ id: 1, username: "admin", password: "admin123", role: "admin" });
+        }
+        saveUsers(users);
+        console.log("Users initialized:", users);
+      }
+      initUsers();
+      let usersLocal = loadUsers();
+      let currentUser = null;
+      if (localStorage.getItem("currentUser")) {
+        currentUser = JSON.parse(localStorage.getItem("currentUser"));
+        console.log("Persistent user found:", currentUser);
+      }
+      function saveCurrentUser() {
+        localStorage.setItem("currentUser", JSON.stringify(currentUser));
+      }
+      function removeCurrentUser() {
+        localStorage.removeItem("currentUser");
+      }
+      function generateLocalId(arr) {
+        if (arr.length === 0) return 1;
+        return Math.max(...arr.map(x => x.id)) + 1;
+      }
+      function getTodayDate() {
+        return new Date().toISOString().split("T")[0];
+      }
 
-        // =====================================================
-        // User Login and Signup (using localStorage)
-        // =====================================================
-        document.getElementById("loginForm").addEventListener("submit", function(e) {
-          e.preventDefault();
-          const username = document.getElementById("loginUsername").value.trim();
-          const password = document.getElementById("loginPassword").value.trim();
-          usersLocal = loadUsers();
-          const user = usersLocal.find(u => u.username === username && u.password === password);
-          if (user) {
-            console.log("Login successful:", user);
-            if (user.role === "member") {
-              if (user.balance === undefined) user.balance = 0;
-              if (user.lastClaimDate === undefined) user.lastClaimDate = "";
-            }
-            currentUser = user;
-            saveCurrentUser();
-            document.getElementById("loginSection").classList.add("hidden");
-            document.getElementById("signupSection").classList.add("hidden");
-            if (currentUser.role === "admin") {
-              document.getElementById("adminDashboard").classList.remove("hidden");
-            } else {
-              document.getElementById("memberDashboard").classList.remove("hidden");
-            }
-          } else {
-            document.getElementById("loginMessage").textContent = "Invalid credentials.";
+      // =====================================================
+      // UI: Switch between Login and Signup Forms
+      // =====================================================
+      document.getElementById("showSignup").addEventListener("click", function () {
+        document.getElementById("loginSection").classList.add("hidden");
+        document.getElementById("signupSection").classList.remove("hidden");
+      });
+      document.getElementById("showLogin").addEventListener("click", function () {
+        document.getElementById("signupSection").classList.add("hidden");
+        document.getElementById("loginSection").classList.remove("hidden");
+      });
+
+      // =====================================================
+      // User Login and Signup (using localStorage)
+      // =====================================================
+      document.getElementById("loginForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const username = document.getElementById("loginUsername").value.trim();
+        const password = document.getElementById("loginPassword").value.trim();
+        usersLocal = loadUsers();
+        const user = usersLocal.find(u => u.username === username && u.password === password);
+        if (user) {
+          console.log("Login successful:", user);
+          if (user.role === "member") {
+            if (user.balance === undefined) user.balance = 0;
+            if (user.lastClaimDate === undefined) user.lastClaimDate = "";
           }
-        });
-        document.getElementById("signupForm").addEventListener("submit", function(e) {
-          e.preventDefault();
-          const username = document.getElementById("signupUsername").value.trim();
-          const password = document.getElementById("signupPassword").value.trim();
-          const confirmPassword = document.getElementById("signupConfirm").value.trim();
-          const role = document.getElementById("signupRole").value;
-          if (password !== confirmPassword) {
-            document.getElementById("signupMessage").textContent = "Passwords do not match.";
-            return;
-          }
-          usersLocal = loadUsers();
-          if (role === "admin") {
-            document.getElementById("signupMessage").textContent = "Admin account already exists. Use admin login.";
-            return;
-          }
-          if (usersLocal.find(u => u.username === username)) {
-            document.getElementById("signupMessage").textContent = "Username already exists.";
-            return;
-          }
-          const newUser = { id: generateLocalId(usersLocal), username, password, role, balance: 0, lastClaimDate: "" };
-          usersLocal.push(newUser);
-          saveUsers(usersLocal);
-          currentUser = newUser;
+          currentUser = user;
           saveCurrentUser();
+          document.getElementById("loginSection").classList.add("hidden");
           document.getElementById("signupSection").classList.add("hidden");
-          document.getElementById("memberDashboard").classList.remove("hidden");
-        });
-        function logout() {
-          console.log("Logging out:", currentUser);
-          currentUser = null;
-          removeCurrentUser();
-          document.getElementById("loginSection").classList.remove("hidden");
-          document.getElementById("adminDashboard").classList.add("hidden");
-          document.getElementById("memberDashboard").classList.add("hidden");
-          document.getElementById("loginForm").reset();
-          document.getElementById("signupForm").reset();
+          if (currentUser.role === "admin") {
+            document.getElementById("adminDashboard").classList.remove("hidden");
+          } else {
+            document.getElementById("memberDashboard").classList.remove("hidden");
+          }
+        } else {
+          document.getElementById("loginMessage").textContent = "Invalid credentials.";
         }
-        document.getElementById("logoutBtnAdmin").addEventListener("click", logout);
-        document.getElementById("logoutBtnMember").addEventListener("click", logout);
+      });
+      document.getElementById("signupForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const username = document.getElementById("signupUsername").value.trim();
+        const password = document.getElementById("signupPassword").value.trim();
+        const confirmPassword = document.getElementById("signupConfirm").value.trim();
+        const role = document.getElementById("signupRole").value;
+        if (password !== confirmPassword) {
+          document.getElementById("signupMessage").textContent = "Passwords do not match.";
+          return;
+        }
+        usersLocal = loadUsers();
+        if (role === "admin") {
+          document.getElementById("signupMessage").textContent = "Admin account already exists. Use admin login.";
+          return;
+        }
+        if (usersLocal.find(u => u.username === username)) {
+          document.getElementById("signupMessage").textContent = "Username already exists.";
+          return;
+        }
+        const newUser = { id: generateLocalId(usersLocal), username, password, role, balance: 0, lastClaimDate: "" };
+        usersLocal.push(newUser);
+        saveUsers(usersLocal);
+        currentUser = newUser;
+        saveCurrentUser();
+        document.getElementById("signupSection").classList.add("hidden");
+        document.getElementById("memberDashboard").classList.remove("hidden");
+      });
+      function logout() {
+        console.log("Logging out:", currentUser);
+        currentUser = null;
+        removeCurrentUser();
+        document.getElementById("loginSection").classList.remove("hidden");
+        document.getElementById("adminDashboard").classList.add("hidden");
+        document.getElementById("memberDashboard").classList.add("hidden");
+        document.getElementById("loginForm").reset();
+        document.getElementById("signupForm").reset();
+      }
+      document.getElementById("logoutBtnAdmin").addEventListener("click", logout);
+      document.getElementById("logoutBtnMember").addEventListener("click", logout);
 
-        // =====================================================
-        // Firebase Functions for Shared Data (Lines and Bets)
-        // =====================================================
-        async function addLine(newLine) {
-          try {
-            const ref = db.ref("lines").push();
-            await ref.set(newLine);
-            console.log("Line added with key:", ref.key);
-          } catch (error) {
-            console.error("Error adding line:", error);
-          }
+      // =====================================================
+      // Firebase Functions for Shared Data (Lines and Bets)
+      // =====================================================
+      async function addLine(newLine) {
+        try {
+          const refLine = ref(db, "lines");
+          const newLineRef = push(refLine);
+          await set(newLineRef, newLine);
+          console.log("Line added with key:", newLineRef.key);
+        } catch (error) {
+          console.error("Error adding line:", error);
         }
-        async function addBet(newBet) {
-          try {
-            const ref = db.ref("bets").push();
-            await ref.set(newBet);
-            console.log("Bet added with key:", ref.key);
-          } catch (error) {
-            console.error("Error adding bet:", error);
-          }
+      }
+      async function addBet(newBet) {
+        try {
+          const refBet = ref(db, "bets");
+          const newBetRef = push(refBet);
+          await set(newBetRef, newBet);
+          console.log("Bet added with key:", newBetRef.key);
+        } catch (error) {
+          console.error("Error adding bet:", error);
         }
-        // =====================================================
-        // Real-Time Listeners for Firebase Data
-        // =====================================================
-        db.ref("lines").on("value", (snapshot) => {
-          const data = snapshot.val() || {};
-          lines = [];
-          for (let key in data) {
-            lines.push({ id: key, ...data[key] });
+      }
+
+      // =====================================================
+      // Real-Time Listeners for Shared Data
+      // =====================================================
+      const linesSharedRef = ref(db, "lines");
+      onValue(linesSharedRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        lines = [];
+        for (let key in data) {
+          lines.push({ id: key, ...data[key] });
+        }
+        console.log("Lines updated from Firebase:", lines);
+        if (currentUser) {
+          if (currentUser.role === "admin") {
+            refreshAdminDashboardUI();
           }
-          console.log("Lines updated from Firebase:", lines);
-          if (currentUser) {
-            if (currentUser.role === "admin") refreshAdminDashboardUI();
-            if (currentUser.role === "member") refreshMemberDashboardUI();
-          }
-        });
-        db.ref("bets").on("value", (snapshot) => {
-          const data = snapshot.val() || {};
-          bets = [];
-          for (let key in data) {
-            bets.push({ id: key, ...data[key] });
-          }
-          console.log("Bets updated from Firebase:", bets);
-          if (currentUser && currentUser.role === "member") {
+          if (currentUser.role === "member") {
             refreshMemberDashboardUI();
           }
-        });
-
-        // =====================================================
-        // Admin Dashboard UI Functions
-        // =====================================================
-        function refreshAdminDashboardUI() {
-          const linesContainer = document.getElementById("linesContainer");
-          if (lines.length === 0) {
-            linesContainer.innerHTML = "<p>No lines available.</p>";
-          } else {
-            let html = '<table><tr><th>ID</th><th>Description</th><th>Option 1</th><th>Option 2</th><th>Correct Outcome</th><th>Actions</th></tr>';
-            lines.forEach((line) => {
-              let outcomeText = line.correctOption === null
-                ? "Pending"
-                : line.correctOption === 1
-                ? line.option1
-                : line.option2;
-              html += `<tr>
-                        <td>${line.id}</td>
-                        <td>${line.description}</td>
-                        <td>${line.option1}</td>
-                        <td>${line.option2}</td>
-                        <td>${outcomeText}</td>
-                        <td>
-                          <button onclick="updateLineOutcome('${line.id}')">Set Outcome</button>
-                          <button onclick="deleteLine('${line.id}')">Delete</button>
-                        </td>
-                       </tr>`;
-            });
-            html += "</table>";
-            linesContainer.innerHTML = html;
-          }
         }
-        async function updateLineOutcome(lineId) {
-          const lineRef = db.ref("lines/" + lineId);
-          const snapshot = await lineRef.once("value");
+      });
+      const betsSharedRef = ref(db, "bets");
+      onValue(betsSharedRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        bets = [];
+        for (let key in data) {
+          bets.push({ id: key, ...data[key] });
+        }
+        console.log("Bets updated from Firebase:", bets);
+        if (currentUser && currentUser.role === "member") {
+          refreshMemberDashboardUI();
+        }
+      });
+
+      // =====================================================
+      // Admin Dashboard UI Functions
+      // =====================================================
+      function refreshAdminDashboardUI() {
+        const linesContainer = document.getElementById("linesContainer");
+        if (lines.length === 0) {
+          linesContainer.innerHTML = "<p>No lines available.</p>";
+          return;
+        }
+        let html = '<table><tr><th>ID</th><th>Description</th><th>Option 1</th><th>Option 2</th><th>Status</th><th>Actions</th></tr>';
+        lines.forEach((line) => {
+          let status = line.correctOption === null ? "Pending" : (line.correctOption === 1 ? line.option1 : line.option2);
+          html += `<tr>
+                    <td>${line.id}</td>
+                    <td>${line.description}</td>
+                    <td>${line.option1}</td>
+                    <td>${line.option2}</td>
+                    <td>${status}</td>
+                    <td>
+                      <button onclick="updateLineOutcome('${line.id}')">Set Outcome</button>
+                      <button onclick="deleteLine('${line.id}')">Delete</button>
+                    </td>
+                   </tr>`;
+        });
+        html += "</table>";
+        linesContainer.innerHTML = html;
+      }
+      async function updateLineOutcome(lineId) {
+        const lineRef = ref(db, "lines/" + lineId);
+        const snapshot = await onValueOnce(lineRef);  // We'll implement onValueOnce below
+      }
+      // Helper function to get a snapshot once (since get() from modular SDK is a bit more involved)
+      async function onValueOnce(refNode) {
+        return new Promise((resolve, reject) => {
+          onValue(refNode, (snapshot) => {
+            resolve(snapshot);
+          }, { onlyOnce: true });
+        });
+      }
+      async function updateLineOutcome(lineId) {
+        const lineRef = ref(db, "lines/" + lineId);
+        try {
+          const snapshot = await onValueOnce(lineRef);
           const line = snapshot.val();
           if (line) {
             const input = prompt(
-              "For line '" +
-                line.description +
-                "', enter the correct option number (1 for \"" +
-                line.option1 +
-                "\" or 2 for \"" +
-                line.option2 +
-                "\"):"
+              "For line '" + line.description + "', enter the correct option number (1 for \"" + line.option1 + "\" or 2 for \"" + line.option2 + "\"):"
             );
             if (input && (input.trim() === "1" || input.trim() === "2")) {
-              await lineRef.update({ correctOption: parseInt(input.trim()) });
+              await update(lineRef, { correctOption: parseInt(input.trim()) });
               console.log("Line updated.");
             } else {
               alert("Invalid input. Please enter 1 or 2.");
             }
           }
+        } catch (error) {
+          console.error("Error updating line:", error);
         }
-        async function deleteLine(lineId) {
-          if (confirm("Are you sure you want to delete line " + lineId + "?")) {
-            await db.ref("lines/" + lineId).remove();
-            console.log("Line deleted.");
-          }
+      }
+      async function deleteLine(lineId) {
+        if (confirm("Are you sure you want to delete line " + lineId + "?")) {
+          await set(ref(db, "lines/" + lineId), null);
+          console.log("Line deleted.");
         }
-        document.getElementById("createLineForm").addEventListener("submit", async function(e) {
-          e.preventDefault();
-          console.log("Create line form submitted. Current user:", currentUser);
-          const description = document.getElementById("lineDescription").value.trim();
-          const option1 = document.getElementById("option1Text").value.trim();
-          const option2 = document.getElementById("option2Text").value.trim();
-          if (!description || !option1 || !option2) {
-            alert("Please fill in all fields.");
-            return;
-          }
-          const newLine = {
-            description: description,
-            option1: option1,
-            option2: option2,
-            correctOption: null
-          };
-          try {
-            await addLine(newLine);
-            console.log("After addLine, currentUser:", localStorage.getItem("currentUser"));
-            document.getElementById("createLineForm").reset();
-          } catch (error) {
-            console.error("Error in create line form:", error);
-            alert("Error adding line. Please try again.");
-          }
-        });
+      }
+      document.getElementById("createLineForm").addEventListener("submit", async function(e) {
+        e.preventDefault();
+        console.log("Create line form submitted. Current user:", currentUser);
+        const description = document.getElementById("lineDescription").value.trim();
+        const option1 = document.getElementById("option1Text").value.trim();
+        const option2 = document.getElementById("option2Text").value.trim();
+        if (!description || !option1 || !option2) {
+          alert("Please fill in all fields.");
+          return;
+        }
+        const newLine = { description, option1, option2, correctOption: null };
+        try {
+          await addLine(newLine);
+          console.log("After addLine, currentUser remains:", localStorage.getItem("currentUser"));
+          document.getElementById("createLineForm").reset();
+        } catch (error) {
+          console.error("Error in create line form:", error);
+          alert("Error adding line. Please try again.");
+        }
+      });
 
-        // =====================================================
-        // Member Dashboard UI Functions
-        // =====================================================
-        function refreshMemberDashboardUI() {
-          // Bonus & Balance Section (from localStorage-based currentUser)
-          const bonusSection = document.getElementById("bonusSection");
-          const today = getTodayDate();
-          if (!currentUser.lastClaimDate || currentUser.lastClaimDate !== today) {
-            bonusSection.innerHTML = `Balance: $${Number(currentUser.balance).toFixed(2)} <button id="claimBonusBtn">Claim Daily Bonus ($5)</button>`;
-          } else {
-            bonusSection.innerHTML = `Balance: $${Number(currentUser.balance).toFixed(2)} <button id="claimBonusBtn" disabled>Daily Bonus Claimed</button>`;
-          }
-          const claimBtn = document.getElementById("claimBonusBtn");
-          if (claimBtn && !claimBtn.disabled) {
-            claimBtn.addEventListener("click", claimBonus);
-          }
-          // Available Lines: show only lines with correctOption === null.
-          const availableDiv = document.getElementById("availableLines");
-          let openLines = lines.filter(line => line.correctOption === null);
-          if (openLines.length === 0) {
-            availableDiv.innerHTML = "<p>No available lines to bet on.</p>";
-          } else {
-            let html = "";
-            openLines.forEach(line => {
-              html += `<div class="line-block">
-                        <strong>${line.description}</strong><br/>
-                        <label>
-                          <input type="radio" name="line_choice_${line.id}" value="1"> ${line.option1}
-                        </label>
-                        <label>
-                          <input type="radio" name="line_choice_${line.id}" value="2"> ${line.option2}
-                        </label>
-                      </div>`;
-            });
-            availableDiv.innerHTML = html;
-          }
-          // Potential Payout Display
-          if (!document.getElementById("potentialPayoutDisplay")) {
-            const potPayout = document.createElement("p");
-            potPayout.id = "potentialPayoutDisplay";
-            potPayout.innerText = "Potential Payout: N/A";
-            availableDiv.parentNode.insertBefore(
-              potPayout,
-              document.getElementById("placeBetForm").querySelector('button[type="submit"]')
-            );
-          }
-          document.getElementById("betAmount").addEventListener("input", updatePotentialPayout);
-          document.getElementById("availableLines").addEventListener("change", updatePotentialPayout);
-          updatePotentialPayout();
-
-          // Live Bets: Render bets where isSettled === false and belong to currentUser.
-          const liveBetsContainer = document.getElementById("liveBetsContainer");
-          let liveBets = bets.filter(bet => bet.user === currentUser.username && !bet.isSettled);
-          if (liveBets.length === 0) {
-            liveBetsContainer.innerHTML = "<p>No live bets.</p>";
-          } else {
-            let html = '<table><tr><th>ID</th><th>Amount</th><th>Selections</th><th>Placed On</th></tr>';
-            liveBets.forEach(bet => {
-              let selectionsStr = bet.selections
-                .map(sel => {
-                  const line = lines.find(l => l.id === sel.lineId);
-                  if (!line) return "";
-                  const optionText = sel.choice === 1 ? line.option1 : line.option2;
-                  return line.description + " (" + optionText + ")";
-                })
-                .join(" | ");
-              html += `<tr>
-                        <td>${bet.id}</td>
-                        <td>${bet.betAmount}</td>
-                        <td>${selectionsStr}</td>
-                        <td>${bet.createdAt}</td>
-                       </tr>`;
-            });
-            html += "</table>";
-            liveBetsContainer.innerHTML = html;
-          }
-
-          // Past Bets: Render bets where isSettled is true.
-          const pastBetsContainer = document.getElementById("pastBetsContainer");
-          let pastBets = bets.filter(bet => bet.user === currentUser.username && bet.isSettled);
-          if (pastBets.length === 0) {
-            pastBetsContainer.innerHTML = "<p>No past bets.</p>";
-          } else {
-            let html = '<table><tr><th>ID</th><th>Amount</th><th>Selections</th><th>Status</th><th>Payout</th><th>Resolved On</th></tr>';
-            pastBets.forEach(bet => {
-              let selectionsStr = bet.selections
-                .map(sel => {
-                  const line = lines.find(l => l.id === sel.lineId);
-                  if (!line) return "";
-                  const optionText = sel.choice === 1 ? line.option1 : line.option2;
-                  return line.description + " (" + optionText + ")";
-                })
-                .join(" | ");
-              html += `<tr>
-                        <td>${bet.id}</td>
-                        <td>${bet.betAmount}</td>
-                        <td>${selectionsStr}</td>
-                        <td>${bet.isWon ? "Won" : "Lost"}</td>
-                        <td>${bet.payout ? bet.payout : "-"}</td>
-                        <td>${bet.resolvedAt ? bet.resolvedAt : "-"}</td>
-                       </tr>`;
-            });
-            html += "</table>";
-            pastBetsContainer.innerHTML = html;
-          }
+      // =====================================================
+      // Member Dashboard UI Functions
+      // =====================================================
+      function refreshMemberDashboardUI() {
+        const bonusSection = document.getElementById("bonusSection");
+        const today = getTodayDate();
+        if (!currentUser.lastClaimDate || currentUser.lastClaimDate !== today) {
+          bonusSection.innerHTML = `Balance: $${Number(currentUser.balance).toFixed(2)} <button id="claimBonusBtn">Claim Daily Bonus ($5)</button>`;
+        } else {
+          bonusSection.innerHTML = `Balance: $${Number(currentUser.balance).toFixed(2)} <button id="claimBonusBtn" disabled>Daily Bonus Claimed</button>`;
+        }
+        const claimBtn = document.getElementById("claimBonusBtn");
+        if (claimBtn && !claimBtn.disabled) {
+          claimBtn.addEventListener("click", claimBonus);
         }
 
-        function updatePotentialPayout() {
-          const betAmtValue = document.getElementById("betAmount").value;
-          const betAmount = parseFloat(betAmtValue);
-          const availableDiv = document.getElementById("availableLines");
-          const checkedRadios = availableDiv.querySelectorAll("input[type='radio']:checked");
-          const count = checkedRadios.length;
-          let potentialText = "Potential Payout: N/A";
-          if (!isNaN(betAmount) && betAmount > 0 && count >= 2 && count <= 6 && MULTIPLIERS[count]) {
-            const payout = betAmount * MULTIPLIERS[count];
-            potentialText = "Potential Payout: $" + payout.toFixed(2);
-          }
-          document.getElementById("potentialPayoutDisplay").innerText = potentialText;
+        const availableDiv = document.getElementById("availableLines");
+        let openLines = lines.filter(line => line.correctOption === null);
+        if (openLines.length === 0) {
+          availableDiv.innerHTML = "<p>No available lines to bet on.</p>";
+        } else {
+          let html = "";
+          openLines.forEach(line => {
+            html += `<div class="line-block">
+                      <strong>${line.description}</strong><br/>
+                      <label>
+                        <input type="radio" name="line_choice_${line.id}" value="1"> ${line.option1}
+                      </label>
+                      <label>
+                        <input type="radio" name="line_choice_${line.id}" value="2"> ${line.option2}
+                      </label>
+                    </div>`;
+          });
+          availableDiv.innerHTML = html;
+        }
+        
+        if (!document.getElementById("potentialPayoutDisplay")) {
+          const potPayout = document.createElement("p");
+          potPayout.id = "potentialPayoutDisplay";
+          potPayout.innerText = "Potential Payout: N/A";
+          availableDiv.parentNode.insertBefore(
+            potPayout,
+            document.getElementById("placeBetForm").querySelector('button[type="submit"]')
+          );
+        }
+        document.getElementById("betAmount").addEventListener("input", updatePotentialPayout);
+        document.getElementById("availableLines").addEventListener("change", updatePotentialPayout);
+        updatePotentialPayout();
+
+        const liveBetsContainer = document.getElementById("liveBetsContainer");
+        let liveBets = bets.filter(bet => bet.user === currentUser.username && !bet.isSettled);
+        if (liveBets.length === 0) {
+          liveBetsContainer.innerHTML = "<p>No live bets.</p>";
+        } else {
+          let html = '<table><tr><th>ID</th><th>Amount</th><th>Selections</th><th>Placed On</th></tr>';
+          liveBets.forEach(bet => {
+            let selectionsStr = bet.selections.map(sel => {
+              const line = lines.find(l => l.id === sel.lineId);
+              if (!line) return "";
+              const optionText = sel.choice === 1 ? line.option1 : line.option2;
+              return line.description + " (" + optionText + ")";
+            }).join(" | ");
+            html += `<tr>
+                      <td>${bet.id || "-"}</td>
+                      <td>${bet.betAmount}</td>
+                      <td>${selectionsStr}</td>
+                      <td>${bet.createdAt}</td>
+                     </tr>`;
+          });
+          html += "</table>";
+          liveBetsContainer.innerHTML = html;
         }
 
-        function claimBonus() {
-          const today = getTodayDate();
-          if (currentUser.lastClaimDate === today) {
-            alert("Daily bonus already claimed for today.");
-            return;
+        const pastBetsContainer = document.getElementById("pastBetsContainer");
+        let pastBets = bets.filter(bet => bet.user === currentUser.username && bet.isSettled);
+        if (pastBets.length === 0) {
+          pastBetsContainer.innerHTML = "<p>No past bets.</p>";
+        } else {
+          let html = '<table><tr><th>ID</th><th>Amount</th><th>Selections</th><th>Status</th><th>Payout</th><th>Resolved On</th></tr>';
+          pastBets.forEach(bet => {
+            let selectionsStr = bet.selections.map(sel => {
+              const line = lines.find(l => l.id === sel.lineId);
+              if (!line) return "";
+              const optionText = sel.choice === 1 ? line.option1 : line.option2;
+              return line.description + " (" + optionText + ")";
+            }).join(" | ");
+            html += `<tr>
+                      <td>${bet.id || "-"}</td>
+                      <td>${bet.betAmount}</td>
+                      <td>${selectionsStr}</td>
+                      <td>${bet.isWon ? "Won" : "Lost"}</td>
+                      <td>${bet.payout ? bet.payout : "-"}</td>
+                      <td>${bet.resolvedAt ? bet.resolvedAt : "-"}</td>
+                     </tr>`;
+          });
+          html += "</table>";
+          pastBetsContainer.innerHTML = html;
+        }
+      }
+
+      function updatePotentialPayout() {
+        const betAmtValue = document.getElementById("betAmount").value;
+        const betAmount = parseFloat(betAmtValue);
+        const availableDiv = document.getElementById("availableLines");
+        const checkedRadios = availableDiv.querySelectorAll("input[type='radio']:checked");
+        const count = checkedRadios.length;
+        let potentialText = "Potential Payout: N/A";
+        if (!isNaN(betAmount) && betAmount > 0 && count >= 2 && count <= 6 && MULTIPLIERS[count]) {
+          const payout = betAmount * MULTIPLIERS[count];
+          potentialText = "Potential Payout: $" + payout.toFixed(2);
+        }
+        document.getElementById("potentialPayoutDisplay").innerText = potentialText;
+      }
+
+      function claimBonus() {
+        const today = getTodayDate();
+        if (currentUser.lastClaimDate === today) {
+          alert("Daily bonus already claimed for today.");
+          return;
+        }
+        currentUser.balance = (currentUser.balance || 0) + 5;
+        currentUser.lastClaimDate = today;
+        for (let i = 0; i < usersLocal.length; i++) {
+          if (usersLocal[i].id === currentUser.id) {
+            usersLocal[i] = currentUser;
+            break;
           }
-          currentUser.balance = (currentUser.balance || 0) + 5;
-          currentUser.lastClaimDate = today;
-          for (let i = 0; i < usersLocal.length; i++) {
-            if (usersLocal[i].id === currentUser.id) {
-              usersLocal[i] = currentUser;
-              break;
+        }
+        saveUsers(usersLocal);
+        alert("Daily bonus of $5 claimed!");
+        refreshMemberDashboardUI();
+      }
+
+      document.getElementById("placeBetForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const betAmount = parseFloat(document.getElementById("betAmount").value);
+        if (betAmount > currentUser.balance) {
+          alert("Insufficient balance to place this bet.");
+          return;
+        }
+        let selections = [];
+        const openLines = lines.filter(line => line.correctOption === null);
+        openLines.forEach(line => {
+          const radios = document.getElementsByName("line_choice_" + line.id);
+          for (let radio of radios) {
+            if (radio.checked) {
+              selections.push({ lineId: line.id, choice: parseInt(radio.value) });
             }
           }
-          saveUsers(usersLocal);
-          alert("Daily bonus of $5 claimed!");
+        });
+        if (selections.length < 2) {
+          alert("Select options for at least 2 lines.");
+          return;
+        }
+        if (selections.length > 6) {
+          alert("You cannot select more than 6 lines.");
+          return;
+        }
+        // For testing, this example does not deduct balance automatically
+        currentUser.balance -= betAmount;
+        for (let i = 0; i < usersLocal.length; i++) {
+          if (usersLocal[i].id === currentUser.id) {
+            usersLocal[i] = currentUser;
+            break;
+          }
+        }
+        saveUsers(usersLocal);
+        const newBet = {
+          betAmount: betAmount,
+          user: currentUser.username,
+          selections: selections,
+          isSettled: false,
+          isWon: null,
+          payout: null,
+          createdAt: new Date().toLocaleString(),
+          resolvedAt: null
+        };
+        await addBet(newBet);
+        document.getElementById("placeBetForm").reset();
+      });
+
+      // Auto-refresh member dashboard every 5 seconds.
+      setInterval(function () {
+        if (currentUser && currentUser.role === "member") {
+          console.log("Auto-refreshing member dashboard.");
           refreshMemberDashboardUI();
         }
-
-        document.getElementById("placeBetForm").addEventListener("submit", async function (e) {
-          e.preventDefault();
-          const betAmount = parseFloat(document.getElementById("betAmount").value);
-          if (betAmount > currentUser.balance) {
-            alert("Insufficient balance to place this bet.");
-            return;
-          }
-          let selections = [];
-          const openLines = lines.filter(line => line.correctOption === null);
-          openLines.forEach(line => {
-            const radios = document.getElementsByName("line_choice_" + line.id);
-            for (let radio of radios) {
-              if (radio.checked) {
-                selections.push({ lineId: line.id, choice: parseInt(radio.value) });
-              }
-            }
-          });
-          if (selections.length < 2) {
-            alert("Select options for at least 2 lines.");
-            return;
-          }
-          if (selections.length > 6) {
-            alert("You cannot select more than 6 lines.");
-            return;
-          }
-          currentUser.balance -= betAmount;
-          for (let i = 0; i < usersLocal.length; i++) {
-            if (usersLocal[i].id === currentUser.id) {
-              usersLocal[i] = currentUser;
-              break;
-            }
-          }
-          saveUsers(usersLocal);
-          const newBet = {
-            betAmount: betAmount,
-            user: currentUser.username,
-            selections: selections,
-            isSettled: false,
-            isWon: null,
-            payout: null,
-            createdAt: new Date().toLocaleString(),
-            resolvedAt: null
-          };
-          await addBet(newBet);
-          document.getElementById("placeBetForm").reset();
-        });
-
-        // Auto-refresh member dashboard every 5 seconds.
-        setInterval(function () {
-          if (currentUser && currentUser.role === "member") {
-            console.log("Auto-refreshing member dashboard.");
-            refreshMemberDashboardUI();
-          }
-        }, 5000);
-      });
+      }, 5000);
+    });
+    // MULTIPLIERS for bet payout calculations (same as before)
+    const MULTIPLIERS = { 2: 3, 3: 7, 4: 10, 5: 12, 6: 25 };
+    // End of document.addEventListener("DOMContentLoaded", ...) block.
     </script>
   </body>
 </html>
