@@ -354,7 +354,8 @@
             if (line) {
               const input = prompt("For line '" + line.description + "', enter the correct option number (1 for \"" + line.option1 + "\" or 2 for \"" + line.option2 + "\"):");
               if (input && (input.trim() === "1" || input.trim() === "2")) {
-                await update(lineRef, { correctOption: parseInt(input.trim()) });
+                // Use the update method on the reference directly
+                await lineRef.update({ correctOption: parseInt(input.trim()) });
                 console.log("Line updated.");
               } else {
                 alert("Invalid input. Please enter 1 or 2.");
@@ -583,6 +584,9 @@
           }
         }, 5000);
       });
+      // Multipliers for bet payout calculations
+      const MULTIPLIERS = { 2: 3, 3: 7, 4: 10, 5: 12, 6: 25 };
+      // End of DOMContentLoaded listener.
     </script>
   </body>
 </html>
