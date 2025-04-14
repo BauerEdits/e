@@ -38,7 +38,7 @@
         border: 1px solid #ddd;
       }
     </style>
-    <!-- Load Firebase SDKs (compatibility versions via CDN) -->
+    <!-- Load Firebase SDKs (compat version via CDN) -->
     <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-database-compat.js"></script>
   </head>
@@ -260,9 +260,9 @@
         // =====================================================
         async function addLine(newLine) {
           try {
-            const refLine = ref(db, "lines");
-            const newLineRef = push(refLine);
-            await set(newLineRef, newLine);
+            const refLine = db.ref("lines");
+            const newLineRef = refLine.push();
+            await newLineRef.set(newLine);
             console.log("Line added with key:", newLineRef.key);
           } catch (error) {
             console.error("Error adding line:", error);
@@ -270,9 +270,9 @@
         }
         async function addBet(newBet) {
           try {
-            const refBet = ref(db, "bets");
-            const newBetRef = push(refBet);
-            await set(newBetRef, newBet);
+            const refBet = db.ref("bets");
+            const newBetRef = refBet.push();
+            await newBetRef.set(newBet);
             console.log("Bet added with key:", newBetRef.key);
           } catch (error) {
             console.error("Error adding bet:", error);
@@ -282,8 +282,8 @@
         // =====================================================
         // Real-Time Listeners for Shared Data
         // =====================================================
-        const linesSharedRef = ref(db, "lines");
-        onValue(linesSharedRef, (snapshot) => {
+        const linesSharedRef = db.ref("lines");
+        linesSharedRef.on("value", (snapshot) => {
           const data = snapshot.val() || {};
           lines = [];
           for (let key in data) {
@@ -299,8 +299,8 @@
             }
           }
         });
-        const betsSharedRef = ref(db, "bets");
-        onValue(betsSharedRef, (snapshot) => {
+        const betsSharedRef = db.ref("bets");
+        betsSharedRef.on("value", (snapshot) => {
           const data = snapshot.val() || {};
           bets = [];
           for (let key in data) {
@@ -340,21 +340,16 @@
           linesContainer.innerHTML = html;
         }
         async function onValueOnce(refNode) {
-          return new Promise((resolve, reject) => {
-            onValue(refNode, (snapshot) => {
-              resolve(snapshot);
-            }, { onlyOnce: true });
-          });
+          return refNode.once("value");
         }
         async function updateLineOutcome(lineId) {
-          const lineRef = ref(db, "lines/" + lineId);
+          const lineRef = db.ref("lines/" + lineId);
           try {
             const snapshot = await onValueOnce(lineRef);
             const line = snapshot.val();
             if (line) {
               const input = prompt("For line '" + line.description + "', enter the correct option number (1 for \"" + line.option1 + "\" or 2 for \"" + line.option2 + "\"):");
               if (input && (input.trim() === "1" || input.trim() === "2")) {
-                // Use the update method on the reference directly
                 await lineRef.update({ correctOption: parseInt(input.trim()) });
                 console.log("Line updated.");
               } else {
@@ -367,7 +362,7 @@
         }
         async function deleteLine(lineId) {
           if (confirm("Are you sure you want to delete line " + lineId + "?")) {
-            await set(ref(db, "lines/" + lineId), null);
+            await db.ref("lines/" + lineId).set(null);
             console.log("Line deleted.");
           }
         }
