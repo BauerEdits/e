@@ -38,7 +38,7 @@
         border: 1px solid #ddd;
       }
     </style>
-    <!-- Load Firebase SDKs (compat version via CDN) -->
+    <!-- Load Firebase SDKs (compatibility versions via CDN) -->
     <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-database-compat.js"></script>
   </head>
@@ -352,9 +352,7 @@
             const snapshot = await onValueOnce(lineRef);
             const line = snapshot.val();
             if (line) {
-              const input = prompt(
-                "For line '" + line.description + "', enter the correct option number (1 for \"" + line.option1 + "\" or 2 for \"" + line.option2 + "\"):"
-              );
+              const input = prompt("For line '" + line.description + "', enter the correct option number (1 for \"" + line.option1 + "\" or 2 for \"" + line.option2 + "\"):");
               if (input && (input.trim() === "1" || input.trim() === "2")) {
                 await update(lineRef, { correctOption: parseInt(input.trim()) });
                 console.log("Line updated.");
@@ -555,7 +553,6 @@
             alert("You cannot select more than 6 lines.");
             return;
           }
-          // For testing, deduct balance here.
           currentUser.balance -= betAmount;
           for (let i = 0; i < usersLocal.length; i++) {
             if (usersLocal[i].id === currentUser.id) {
@@ -586,9 +583,6 @@
           }
         }, 5000);
       });
-      // Multipliers for bet payout calculations
-      const MULTIPLIERS = { 2: 3, 3: 7, 4: 10, 5: 12, 6: 25 };
-      // End of DOMContentLoaded listener.
     </script>
   </body>
 </html>
