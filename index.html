@@ -9,29 +9,12 @@
         font-family: Arial, sans-serif;
         margin: 20px;
       }
-      .hidden {
-        display: none;
-      }
-      h2, h3 {
-        color: #333;
-      }
-      input, button, select {
-        margin: 5px;
-        padding: 5px;
-      }
-      .container {
-        margin-bottom: 20px;
-      }
-      table, th, td {
-        border: 1px solid #ccc;
-        border-collapse: collapse;
-        padding: 5px;
-      }
-      a {
-        cursor: pointer;
-        color: blue;
-        text-decoration: underline;
-      }
+      .hidden { display: none; }
+      h2, h3 { color: #333; }
+      input, button, select { margin: 5px; padding: 5px; }
+      .container { margin-bottom: 20px; }
+      table, th, td { border: 1px solid #ccc; border-collapse: collapse; padding: 5px; }
+      a { cursor: pointer; color: blue; text-decoration: underline; }
       .line-block {
         margin-bottom: 10px;
         padding: 5px;
@@ -56,7 +39,7 @@
       <p id="loginMessage" style="color:red;"></p>
       <p>Don't have an account? <a id="showSignup">Sign Up</a></p>
     </div>
-
+    
     <!-- Sign Up Section -->
     <div id="signupSection" class="container hidden">
       <h2>Sign Up</h2>
@@ -77,7 +60,7 @@
       <p id="signupMessage" style="color:red;"></p>
       <p>Already have an account? <a id="showLogin">Log In</a></p>
     </div>
-
+    
     <!-- Admin Dashboard -->
     <div id="adminDashboard" class="container hidden">
       <h2>Admin Dashboard</h2>
@@ -93,7 +76,7 @@
       <h3>Resolve Bets</h3>
       <button id="resolveBetsBtn">Resolve Unsettled Bets</button>
     </div>
-
+    
     <!-- Member Dashboard -->
     <div id="memberDashboard" class="container hidden">
       <h2>Member Dashboard</h2>
@@ -113,12 +96,16 @@
       <h3>Past Bets</h3>
       <div id="pastBetsContainer"></div>
     </div>
-
+    
     <!-- Firebase Initialization and Application Code -->
     <script>
+      // Make sure to declare our shared variables as globals.
+      let lines = [];
+      let bets = [];
+      
       document.addEventListener("DOMContentLoaded", function() {
         console.log("DOM fully loaded and parsed.");
-
+        
         // =====================================================
         // Initialize Firebase with your configuration
         // =====================================================
@@ -135,7 +122,7 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         console.log("Firebase initialized.");
-
+        
         // =====================================================
         // Local User Storage (for login) using localStorage
         // =====================================================
@@ -174,19 +161,19 @@
         function getTodayDate() {
           return new Date().toISOString().split("T")[0];
         }
-
+        
         // =====================================================
         // UI: Switch Between Login and Signup Forms
         // =====================================================
-        document.getElementById("showSignup").addEventListener("click", function () {
+        document.getElementById("showSignup").addEventListener("click", function() {
           document.getElementById("loginSection").classList.add("hidden");
           document.getElementById("signupSection").classList.remove("hidden");
         });
-        document.getElementById("showLogin").addEventListener("click", function () {
+        document.getElementById("showLogin").addEventListener("click", function() {
           document.getElementById("signupSection").classList.add("hidden");
           document.getElementById("loginSection").classList.remove("hidden");
         });
-
+        
         // =====================================================
         // User Login and Signup (using localStorage)
         // =====================================================
@@ -254,7 +241,7 @@
         }
         document.getElementById("logoutBtnAdmin").addEventListener("click", logout);
         document.getElementById("logoutBtnMember").addEventListener("click", logout);
-
+        
         // =====================================================
         // Firebase Functions for Shared Data (Lines and Bets)
         // =====================================================
@@ -278,7 +265,7 @@
             console.error("Error adding bet:", error);
           }
         }
-
+        
         // =====================================================
         // Real-Time Listeners for Shared Data
         // =====================================================
@@ -311,7 +298,7 @@
             refreshMemberDashboardUI();
           }
         });
-
+        
         // =====================================================
         // Admin Dashboard UI Functions
         // =====================================================
@@ -339,13 +326,11 @@
           html += "</table>";
           linesContainer.innerHTML = html;
         }
-        async function onValueOnce(refNode) {
-          return refNode.once("value");
-        }
+        
         async function updateLineOutcome(lineId) {
           const lineRef = db.ref("lines/" + lineId);
           try {
-            const snapshot = await onValueOnce(lineRef);
+            const snapshot = await lineRef.once("value");
             const line = snapshot.val();
             if (line) {
               const input = prompt("For line '" + line.description + "', enter the correct option number (1 for \"" + line.option1 + "\" or 2 for \"" + line.option2 + "\"):");
@@ -360,12 +345,17 @@
             console.error("Error updating line:", error);
           }
         }
+        
         async function deleteLine(lineId) {
           if (confirm("Are you sure you want to delete line " + lineId + "?")) {
             await db.ref("lines/" + lineId).set(null);
             console.log("Line deleted.");
           }
         }
+        // Expose functions globally so that onclick attributes can call them.
+        window.updateLineOutcome = updateLineOutcome;
+        window.deleteLine = deleteLine;
+        
         document.getElementById("createLineForm").addEventListener("submit", async function(e) {
           e.preventDefault();
           console.log("Create line form submitted. Current user:", currentUser);
@@ -386,7 +376,7 @@
             alert("Error adding line. Please try again.");
           }
         });
-
+        
         // =====================================================
         // Member Dashboard UI Functions
         // =====================================================
@@ -402,9 +392,10 @@
           if (claimBtn && !claimBtn.disabled) {
             claimBtn.addEventListener("click", claimBonus);
           }
-
+          
           const availableDiv = document.getElementById("availableLines");
           let openLines = lines.filter(line => line.correctOption === null);
+          console.log("Member Dashboard - open lines available:", openLines.length);
           if (openLines.length === 0) {
             availableDiv.innerHTML = "<p>No available lines to bet on.</p>";
           } else {
@@ -435,7 +426,7 @@
           document.getElementById("betAmount").addEventListener("input", updatePotentialPayout);
           document.getElementById("availableLines").addEventListener("change", updatePotentialPayout);
           updatePotentialPayout();
-
+          
           const liveBetsContainer = document.getElementById("liveBetsContainer");
           let liveBets = bets.filter(bet => bet.user === currentUser.username && !bet.isSettled);
           if (liveBets.length === 0) {
@@ -461,7 +452,7 @@
             html += "</table>";
             liveBetsContainer.innerHTML = html;
           }
-
+          
           const pastBetsContainer = document.getElementById("pastBetsContainer");
           let pastBets = bets.filter(bet => bet.user === currentUser.username && bet.isSettled);
           if (pastBets.length === 0) {
@@ -490,7 +481,7 @@
             pastBetsContainer.innerHTML = html;
           }
         }
-
+        
         function updatePotentialPayout() {
           const betAmtValue = document.getElementById("betAmount").value;
           const betAmount = parseFloat(betAmtValue);
@@ -504,7 +495,7 @@
           }
           document.getElementById("potentialPayoutDisplay").innerText = potentialText;
         }
-
+        
         function claimBonus() {
           const today = getTodayDate();
           if (currentUser.lastClaimDate === today) {
@@ -523,7 +514,7 @@
           alert("Daily bonus of $5 claimed!");
           refreshMemberDashboardUI();
         }
-
+        
         document.getElementById("placeBetForm").addEventListener("submit", async function (e) {
           e.preventDefault();
           const betAmount = parseFloat(document.getElementById("betAmount").value);
@@ -570,7 +561,7 @@
           await addBet(newBet);
           document.getElementById("placeBetForm").reset();
         });
-
+        
         // Auto-refresh member dashboard every 5 seconds.
         setInterval(function () {
           if (currentUser && currentUser.role === "member") {
@@ -579,9 +570,9 @@
           }
         }, 5000);
       });
+      
       // Multipliers for bet payout calculations
       const MULTIPLIERS = { 2: 3, 3: 7, 4: 10, 5: 12, 6: 25 };
-      // End of DOMContentLoaded listener.
     </script>
   </body>
 </html>
